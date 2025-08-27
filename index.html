@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>藤井寺駅 準急時刻表</title>
+  <meta charset="UTF-8" />
+  <title>藤井寺 → 阿部野橋 準急（平日）</title>
 
   <!-- iPhoneでの表示最適化 -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  
+
   <style>
     :root{
       --bg: #f5f5f7;
@@ -162,64 +162,154 @@
       .end{ background: rgba(255,255,255,.06); }
     }
   </style>
-
 </head>
 <body>
-  <div id="nextBuses">読み込み中...</div>
-  <button onclick="updateNextBuses()">更新</button>
+  <div class="wrap">
+    <main class="card">
+      <div class="title">藤井寺 → 大阪阿部野橋（準急／平日）</div>
+      <div class="subtitle">直近4本を表示・毎分自動更新</div>
+
+      <div id="clock" class="clock">--:--</div>
+
+      <section id="list" class="list" aria-live="polite"></section>
+      <div id="endMessage" class="end" style="display:none;">本日の便は終了しました</div>
+
+      <div class="footer">
+        <button class="btn" id="refreshBtn" type="button">更新</button>
+        <div>最終更新 <span id="updated">--:--</span></div>
+      </div>
+    </main>
+  </div>
 
   <script>
+    // 近鉄 南大阪線 藤井寺→大阪阿部野橋 準急（平日） 全時間帯
+    // ※24時間表記 "HH:MM"
     const timetable = [
+      // 5時台
       "05:32","05:56",
+      // 6時台
       "06:13","06:28","06:40","06:48","06:56",
+      // 7時台
       "07:08","07:18","07:25","07:36","07:41","07:48","07:53","07:58",
+      // 8時台
       "08:05","08:13","08:23","08:34","08:45","08:53",
+      // 9時台
       "09:03","09:13","09:23","09:33","09:44","09:53",
+      // 10時台
       "10:03","10:14","10:23","10:33","10:43","10:53",
+      // 11〜16時台（各時 03,13,23,33,43,53）
       "11:03","11:13","11:23","11:33","11:43","11:53",
       "12:03","12:13","12:23","12:33","12:43","12:53",
       "13:03","13:13","13:23","13:33","13:43","13:53",
       "14:03","14:13","14:23","14:33","14:43","14:53",
       "15:03","15:13","15:23","15:33","15:43","15:53",
       "16:03","16:13","16:23","16:33","16:43","16:53",
+      // 17時台
       "17:03","17:15","17:24","17:45","17:53",
+      // 18時台
       "18:04","18:15","18:25","18:35","18:45","18:55",
+      // 19時台
       "19:05","19:15","19:25","19:36","19:45","19:55",
+      // 20時台
       "20:05","20:17","20:24","20:35","20:46","20:54",
+      // 21時台
       "21:03","21:14","21:24","21:32","21:44","21:54",
+      // 22時台
       "22:02","22:16","22:25","22:38","22:48","22:59",
+      // 23時台
       "23:02","23:15"
     ];
 
-    function updateNextBuses() {
-      const now = new Date();
-      const today = now.toDateString();
+    const $clock = document.getElementById("clock");
+    const $list = document.getElementById("list");
+    const $end = document.getElementById("endMessage");
+    const $updated = document.getElementById("updated");
+    const $refresh = document.getElementById("refreshBtn");
 
-      // 今日の日付に時刻表を当てはめて Date に変換
-      const timetableDates = timetable.map(time => {
-        const [h, m] = time.split(":").map(Number);
-        return new Date(`${today} ${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`);
-      });
-
-      // 現在時刻以降
-      const upcoming = timetableDates.filter(d => d > now);
-
-      let text = "";
-      if (upcoming.length === 0) {
-        text = "本日の便は終了しました";
-      } else {
-        const formatter = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" });
-        for (let i = 0; i < Math.min(4, upcoming.length); i++) {
-          const bus = upcoming[i];
-          const diff = Math.floor((bus - now) / 60000); // 分差
-          text += `🕰️ ${formatter.format(bus)}（あと ${diff}分後）\n`;
-        }
-      }
-      document.getElementById("nextBuses").innerText = text.trim();
+    // "HH:MM" -> 今日の日付の Date
+    function toTodayDate(timeStr){
+      const [h, m] = timeStr.split(":").map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      return d;
     }
 
-    // ページロード時に実行
-    window.onload = updateNextBuses;
+    function formatHM(d){
+      return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+    }
+
+    function minutesDiff(a, b){
+      return Math.floor((a - b) / 60000);
+    }
+
+    function update(){
+      const now = new Date();
+
+      // 時計表示（秒は省略して視認性UP）
+      $clock.textContent = new Intl.DateTimeFormat("ja-JP", {
+        hour: "2-digit", minute: "2-digit", second: undefined, hour12: false
+      }).format(now);
+
+      // 直近4件を抽出
+      const upcoming = timetable
+        .map(t => toTodayDate(t))
+        .filter(d => d > now)
+        .slice(0, 4);
+
+      // UI更新
+      $list.innerHTML = "";
+      if (upcoming.length === 0){
+        $end.style.display = "block";
+      } else {
+        $end.style.display = "none";
+        upcoming.forEach((d, i) => {
+          const row = document.createElement("div");
+          row.className = "row";
+
+          const badge = document.createElement("div");
+          badge.className = "badge";
+          badge.textContent = i === 0 ? "次発" : `+${i}`;
+          row.appendChild(badge);
+
+          const time = document.createElement("div");
+          time.className = "time";
+          time.textContent = formatHM(d);
+          row.appendChild(time);
+
+          const eta = document.createElement("div");
+          eta.className = "eta";
+          const diff = minutesDiff(d, now);
+          eta.textContent = `あと ${diff} 分`;
+          row.appendChild(eta);
+
+          $list.appendChild(row);
+        });
+      }
+
+      $updated.textContent = formatHM(now);
+    }
+
+    // 毎分更新（分が切り替わるタイミングに同期）
+    function startMinuteTicker(){
+      const now = new Date();
+      const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(() => {
+        update();
+        setInterval(update, 60 * 1000);
+      }, Math.max(0, msToNextMinute));
+    }
+
+    // 手動更新ボタン
+    $refresh.addEventListener("click", () => update());
+
+    // タブ復帰時に取りこぼしを補正
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) update();
+    });
+
+    // 初期表示
+    update();
+    startMinuteTicker();
   </script>
 </body>
 </html>
