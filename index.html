@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>藤井寺駅 準急時刻表</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    #nextBuses {
+      font-size: 1.2rem;
+      white-space: pre-line;
+      margin-bottom: 20px;
+    }
+    button {
+      font-size: 1rem;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div id="nextBuses">読み込み中...</div>
+  <button onclick="updateNextBuses()">更新</button>
+
+  <script>
+    const timetable = [
+      "05:32","05:56",
+      "06:13","06:28","06:40","06:48","06:56",
+      "07:08","07:18","07:25","07:36","07:41","07:48","07:53","07:58",
+      "08:05","08:13","08:23","08:34","08:45","08:53",
+      "09:03","09:13","09:23","09:33","09:44","09:53",
+      "10:03","10:14","10:23","10:33","10:43","10:53",
+      "11:03","11:13","11:23","11:33","11:43","11:53",
+      "12:03","12:13","12:23","12:33","12:43","12:53",
+      "13:03","13:13","13:23","13:33","13:43","13:53",
+      "14:03","14:13","14:23","14:33","14:43","14:53",
+      "15:03","15:13","15:23","15:33","15:43","15:53",
+      "16:03","16:13","16:23","16:33","16:43","16:53",
+      "17:03","17:15","17:24","17:45","17:53",
+      "18:04","18:15","18:25","18:35","18:45","18:55",
+      "19:05","19:15","19:25","19:36","19:45","19:55",
+      "20:05","20:17","20:24","20:35","20:46","20:54",
+      "21:03","21:14","21:24","21:32","21:44","21:54",
+      "22:02","22:16","22:25","22:38","22:48","22:59",
+      "23:02","23:15"
+    ];
+
+    function updateNextBuses() {
+      const now = new Date();
+      const today = now.toDateString();
+
+      // 今日の日付に時刻表を当てはめて Date に変換
+      const timetableDates = timetable.map(time => {
+        const [h, m] = time.split(":").map(Number);
+        return new Date(`${today} ${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`);
+      });
+
+      // 現在時刻以降
+      const upcoming = timetableDates.filter(d => d > now);
+
+      let text = "";
+      if (upcoming.length === 0) {
+        text = "本日の便は終了しました";
+      } else {
+        const formatter = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" });
+        for (let i = 0; i < Math.min(4, upcoming.length); i++) {
+          const bus = upcoming[i];
+          const diff = Math.floor((bus - now) / 60000); // 分差
+          text += `🕰️ ${formatter.format(bus)}（あと ${diff}分後）\n`;
+        }
+      }
+      document.getElementById("nextBuses").innerText = text.trim();
+    }
+
+    // ページロード時に実行
+    window.onload = updateNextBuses;
+  </script>
+</body>
+</html>
